@@ -5,21 +5,31 @@ from dataclasses import dataclass
 from cliente1 import Jokenpo
 
 class EstadoMemoriaCompartilhada():
+    # 1. ANOTAÇÕES DE TIPO (O molde/documentação para o editor de código)
     jogadas_jogador1: str
     jogador_jogador2: str
     fase_jogador1: int
     fase_jogador2: int
     j1_pronto: bool
     j2_pronto: bool
+    j1_reordenado: bool          # Adicionado para a Fase 2
+    j2_reordenado: bool          # Adicionado para a Fase 2
+    resultado_final: str         # Adicionado para a Fase 3
+    processamento_concluido: bool # Adicionado para a Fase 3
     lock_memoria: threading.Lock
 
+    # 2. O CONSTRUTOR (Onde a memória é alocada de verdade quando você instancia)
     def __init__(self):
         self.jogadas_jogador1 = ""
-        self.jogadas_jogador2 = ""
+        self.jogador_jogador2 = ""
         self.fase_jogador1 = 1
         self.fase_jogador2 = 1
         self.j1_pronto = False
         self.j2_pronto = False
+        self.j1_reordenado = False
+        self.j2_reordenado = False
+        self.resultado_final = ""
+        self.processamento_concluido = False
         self.lock_memoria = threading.Lock()
 
 def gerenciar_cliente(conexao, id_jogador, estado_jogo: EstadoMemoriaCompartilhada):
@@ -51,16 +61,22 @@ def gerenciar_cliente(conexao, id_jogador, estado_jogo: EstadoMemoriaCompartilha
                         break # Condição atendida! Sai do laço de espera
                 time.sleep(0.1) # Evita o uso excessivo de CPU enquanto aguarda
 
+            coordena_reordenacao(conexao, id_jogador, estado_jogo)    
+
             # 3. PROCESSAMENTO EXCLUSIVO DA THREAD 1
             # Apenas a thread do Jogador 1 vai calcular o vencedor para evitar duplicidade
-            if id_jogador == 1:
-                # Aqui você roda a lógica de cálculo
-                resultado = computar_vencedor(estado_jogo.jogadas_jogador1, estado_jogo.jogador_jogador2)
+            
+            while True:
+                if id_jogador == 1:
+                    # Aqui você roda a lógica de cálculo
+                    resultado = computar_vencedor(estado_jogo.jogadas_jogador1, estado_jogo.jogador_jogador2)
                 
-                # Guarda o resultado string final na memória compartilhada (você pode adicionar esse campo na classe)
-                with estado_jogo.lock_memoria:
-                    estado_jogo.resultado_final = resultado
-                    estado_jogo.processamento_concluido = True
+                    # Guarda o resultado string final na memória compartilhada (você pode adicionar esse campo na classe)
+                    with estado_jogo.lock_memoria:
+                        estado_jogo.resultado_final = resultado
+                        estado_jogo.processamento_concluido = True
+                    break
+                time.sleep(0.1)    
 
             # 4. SEGUNDA BARREIRA DE ESPERA (Para o Jogador 2 esperar o cálculo do Jogador 1)
             while True:
@@ -135,6 +151,51 @@ def computar_vencedor(jogadas_j1, jogadas_j2):
         return f"Resultado: Jogador 2 Venceu! Placar: {pontos_j2}x{pontos_j1}"
     else:
         return f"Resultado: Empate Geral! Placar: {pontos_j1}x{pontos_j2}"
+    
+import time
+
+def coordena_reordenacao(conexao, id_jogador, estado_jogo: EstadoMemoriaCompartilhada):
+    """
+    Coordena a Fase 2 (Revelação e Reordenação).
+    Cada jogador recebe o deck original do oponente, faz sua reordenação e 
+    atualiza a memória compartilhada com a nova estratégia.
+    """
+    print(f"[FASE 2] Iniciada reordenação para Jogador {id_jogador}")
+    
+    # 1. LEITURA CRUZADA: Pegar o deck do oponente de forma segura
+    with estado_jogo.lock_memoria:
+        if id_jogador == 1:
+            deck_adversario = estado_jogo.jogador_jogador2
+        else:
+            deck_adversario = estado_jogo.jogadas_jogador1
+
+    # 2. COMUNICAÇÃO: Envia o deck do adversário para o cliente
+    # O cliente vai exibir isso na tela e pedir a nova ordem do usuário
+    mensagem_envio = f"REORDENAR:{deck_adversario}"
+    conexao.send(mensagem_envio.encode('utf-8'))
+    
+    # 3. REDE: Recebe a nova string com o deck reordenado do cliente
+    novo_deck = conexao.recv(1024).decode('utf-8')
+    print(f"[JOGADOR {id_jogador} REORDENOU]: {novo_deck}")
+    
+    # 4. ESCRITA: Atualiza a memória compartilhada com as jogadas finais
+    with estado_jogo.lock_memoria:
+        if id_jogador == 1:
+            estado_jogo.jogadas_jogador1 = novo_deck
+            # Usando uma nova flag que você pode colocar na classe para controlar essa fase
+            estado_jogo.j1_reordenado = True 
+        else:
+            estado_jogo.jogador_jogador2 = novo_deck
+            estado_jogo.j2_reordenado = True
+
+    # 5. SEGUNDA BARREIRA DE ESPERA: Garante que o cálculo do vencedor 
+    # só comece depois que AMBOS os jogadores terminarem de digitar a reordenação
+    while True:
+        with estado_jogo.lock_memoria:
+            # Verifica se ambos os jogadores concluíram a Fase 2
+            if getattr(estado_jogo, 'j1_reordenado', False) and getattr(estado_jogo, 'j2_reordenado', False):
+                break
+        time.sleep(0.1)    
           
 
 

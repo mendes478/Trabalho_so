@@ -8,16 +8,51 @@ class Jokenpo(Enum):
     PAPEL = 2
     TESOURA = 3
 
-"""def reordena_jogada(string: str) -> str:
-    '''
-    Recebe uma *string* de jogadas e reordena com base
-    nas escolhas do jogador.
-    '''
-    lista_jogadas = list(string)
+def reordena_jogadas(sua_jogada: str, jogada_adversaria: str) -> str:
+    # Transforma a string de jogadas atual em uma lista para poder alterar as posições
+    letras = list(sua_jogada.upper())
+    
     while True:
-        print(f'jogadas')
-        troca_1 = int(input('digite uma jogada a ser reposicionada(1 - 5)'))
-        troca_2 = int(input('Selecione a segunda jogada para fazer a troca(1 - 5)'))"""
+        print("\n" + "="*40)
+        print("          FASE 2: REORDENAÇÃO")
+        print("="*40)
+        print(f"Sua jogada atual  : {' '.join(letras)}")
+        print(f"Jogada adversária : {' '.join(jogada_adversaria.upper())}")
+        print("-"*40)
+        print("Digite os índices (1 a 5) das cartas que deseja trocar de lugar.")
+        print("Ou digite '0' no primeiro campo para finalizar a reordenação.")
+        print("-"*40)
+        
+        try:
+            # Pergunta a primeira carta
+            idx1 = int(input("1ª carta a ser trocada (1-5): "))
+            if idx1 == 0:
+                print("[INFO] Reordenação finalizada pelo jogador.")
+                break
+                
+            # Pergunta a segunda carta
+            idx2 = int(input("2ª carta a ser trocada (1-5): "))
+            
+            # Validação: verifica se os índices estão no intervalo correto (1 a 5)
+            if idx1 < 1 or idx1 > 5 or idx2 < 1 or idx2 > 5:
+                print("[ERRO] Índices inválidos! Escolha números de 1 a 5.")
+                continue
+                
+            if idx1 == idx2:
+                print("[AVISO] Você escolheu a mesma carta. Nenhuma troca feita.")
+                continue
+            
+            # A MÁGICA DA TROCA (SWAP):
+            # Convertemos o índice de "humanos" (1-5) para o índice do Python (0-4)
+            letras[idx1 - 1], letras[idx2 - 1] = letras[idx2 - 1], letras[idx1 - 1]
+            print(f"[SUCESSO] Trocadas as posições {idx1} e {idx2}!")
+            
+        except ValueError:
+            print("[ERRO] Entrada inválida! Por favor, digite apenas números inteiros.")
+            
+    # Converte a lista reordenada de volta para uma única string (ex: 'PTRRR')
+    jogada_final = "".join(letras)
+    return jogada_final
 
 
 def scan_jogadas() -> list[Jokenpo]:
@@ -70,7 +105,14 @@ def iniciar_cliente():
             
             # Envia a mensagem digitada
             cliente.send(string_jogadas.encode('utf-8'))
-                
+            
+            jogada_adversaria = cliente.recv(1024).decode('utf-8')
+            print(f"""[SERVIDOR]: Jogada do adversário -> {jogada_adversaria}
+-> Sua jogada: {string_jogadas}""")
+
+            jogada_reordenada = reordena_jogadas(string_jogadas, jogada_adversaria )
+            cliente.send(jogada_reordenada.encode('utf-8'))          
+           
             # Aguarda e exibe a resposta de confirmação do servidor
             resposta = cliente.recv(1024).decode('utf-8')
             print(f"[SERVIDOR]: {resposta}")
