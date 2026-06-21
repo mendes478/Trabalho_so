@@ -8,16 +8,31 @@ class Jokenpo(Enum):
     PAPEL = 2
     TESOURA = 3
 
+"""def reordena_jogada(string: str) -> str:
+    '''
+    Recebe uma *string* de jogadas e reordena com base
+    nas escolhas do jogador.
+    '''
+    lista_jogadas = list(string)
+    while True:
+        print(f'jogadas')
+        troca_1 = int(input('digite uma jogada a ser reposicionada(1 - 5)'))
+        troca_2 = int(input('Selecione a segunda jogada para fazer a troca(1 - 5)'))"""
+
+
 def scan_jogadas() -> list[Jokenpo]:
     '''
     Recebe as jogadas que o jogador pretende fazer.
     '''
-    lst = []
-    for i in range(5):
-        jogada = int(input(f"""Selecione sua {i + 1}ª jogada\n
+    try:
+        lst = []
+        for i in range(5):
+            jogada = int(input(f"""Selecione sua {i + 1}ª jogada\n
 (1) Pedra (2) Papel (3) Tesoura
 >> """))
-        lst.append(Jokenpo(jogada))
+            lst.append(Jokenpo(jogada))
+    except Exception as e:
+        print(f'erro: {e}')        
     return lst
 
 def converte_para_string(lst: list[Jokenpo]) -> str:
